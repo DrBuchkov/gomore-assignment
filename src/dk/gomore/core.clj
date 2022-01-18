@@ -5,8 +5,6 @@
             [potpuri.core :as pt])
   (:gen-class)
   (:import (clojure.lang ExceptionInfo)
-           (java.time Instant)
-           (java.time.format DateTimeFormatter)
            (java.util Date)
            (java.text SimpleDateFormat)))
 
