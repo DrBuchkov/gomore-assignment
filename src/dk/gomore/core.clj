@@ -76,6 +76,17 @@
                               (.format ^SimpleDateFormat date-formatter date)
                               number-of-seats])))))
 
+(defmacro cond-filter-xf
+  "Builds a filter transducer conditionally."
+  [& args]
+  (let [forms (->> args
+                   (partition 2)
+                   (map (fn [[condition filter-form]]
+                          [condition `(comp (filter ~filter-form))]))
+                   (apply concat))]
+    `(cond->> identity
+              ~@forms)))
+
 (defn prompt! []
   (try
     (loop [rides [] last-ride nil]
@@ -95,23 +106,23 @@
           "S" (let [{:keys [from-city to-city from-date to-date minimum-free-seats]}
                     (normalize-search-args (parse-args args ::search-args))
 
-                    tf
-                    (cond->> identity
-                             from-city (comp (filter (pt/where-fn {:from-city from-city})))
-                             to-city (comp (filter (pt/where-fn {:to-city to-city})))
-                             from-date (comp (filter (fn [{:keys [date]}]
-                                                       (<= (-> ^Date from-date .toInstant .getEpochSecond)
-                                                           (-> ^Date date .toInstant .getEpochSecond)))))
-                             to-date (comp (filter (fn [{:keys [date]}]
-                                                     (<= (-> ^Date date .toInstant .getEpochSecond)
-                                                         (-> ^Date to-date .toInstant .getEpochSecond)))))
-                             minimum-free-seats (comp (filter (fn [{:keys [number-of-seats]}]
-                                                                (<= minimum-free-seats
-                                                                    number-of-seats)))))
+                    xf
+                    (cond-filter-xf from-city (pt/where-fn {:from-city from-city})
+                                    to-city (pt/where-fn {:to-city to-city})
+                                    from-date (fn [{:keys [date]}]
+                                                (<= (-> ^Date from-date .toInstant .getEpochSecond)
+                                                    (-> ^Date date .toInstant .getEpochSecond)))
+                                    to-date (fn [{:keys [date]}]
+                                              (<= (-> ^Date date .toInstant .getEpochSecond)
+                                                  (-> ^Date to-date .toInstant .getEpochSecond)))
+                                    minimum-free-seats (fn [{:keys [number-of-seats]}]
+                                                         (<= minimum-free-seats
+                                                             number-of-seats)))
 
-                    matched-rides (transduce tf conj rides)]
+                    matched-rides (transduce xf conj rides)]
                 (print-matched-rides! matched-rides)
                 (recur rides last-ride))
+          "exit" (println "Goodbye!")
           (throw (ex-info (str "Invalid command: " command) {:command command})))))
     (catch ExceptionInfo ex
       (println (ex-message ex))
