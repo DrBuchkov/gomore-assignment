@@ -76,13 +76,13 @@
                               (.format ^SimpleDateFormat date-formatter date)
                               number-of-seats])))))
 
-(defmacro cond-filter-xf
-  "Builds a filter transducer conditionally."
+(defmacro cond-comp
+  "Composes functions conditionally."
   [& args]
   (let [forms (->> args
                    (partition 2)
                    (map (fn [[condition filter-form]]
-                          [condition `(comp (filter ~filter-form))]))
+                          [condition `(comp ~filter-form)]))
                    (apply concat))]
     `(cond->> identity
               ~@forms)))
@@ -107,21 +107,20 @@
                     (normalize-search-args (parse-args args ::search-args))
 
                     xf
-                    (cond-filter-xf from-city (pt/where-fn {:from-city from-city})
+                    (cond-comp from-city (filter (pt/where-fn {:from-city from-city}))
 
-                                    to-city (pt/where-fn {:to-city to-city})
+                               to-city (filter (pt/where-fn {:to-city to-city}))
 
-                                    from-date (fn [{:keys [date]}]
-                                                (<= (-> ^Date from-date .toInstant .getEpochSecond)
-                                                    (-> ^Date date .toInstant .getEpochSecond)))
+                               from-date (filter (fn [{:keys [date]}]
+                                                   (<= (-> ^Date from-date .toInstant .getEpochSecond)
+                                                       (-> ^Date date .toInstant .getEpochSecond))))
+                               to-date (filter (fn [{:keys [date]}]
+                                                 (<= (-> ^Date date .toInstant .getEpochSecond)
+                                                     (-> ^Date to-date .toInstant .getEpochSecond))))
 
-                                    to-date (fn [{:keys [date]}]
-                                              (<= (-> ^Date date .toInstant .getEpochSecond)
-                                                  (-> ^Date to-date .toInstant .getEpochSecond)))
-
-                                    minimum-free-seats (fn [{:keys [number-of-seats]}]
-                                                         (<= minimum-free-seats
-                                                             number-of-seats)))
+                               minimum-free-seats (filter (fn [{:keys [number-of-seats]}]
+                                                            (<= minimum-free-seats
+                                                                number-of-seats))))
 
                     matched-rides (transduce xf conj rides)]
                 (print-matched-rides! matched-rides)
