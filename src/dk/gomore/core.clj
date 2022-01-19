@@ -112,8 +112,7 @@
                     matched-rides (transduce tf conj rides)]
                 (print-matched-rides! matched-rides)
                 (recur rides last-ride))
-          (do (clojure.pprint/pprint rides)
-              (throw (ex-info (str "Invalid command: " command) {:command command}))))))
+          (throw (ex-info (str "Invalid command: " command) {:command command})))))
     (catch ExceptionInfo ex
       (println (ex-message ex))
       (when-let [reason (:reason (ex-data ex))]
