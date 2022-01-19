@@ -108,13 +108,17 @@
 
                     xf
                     (cond-filter-xf from-city (pt/where-fn {:from-city from-city})
+
                                     to-city (pt/where-fn {:to-city to-city})
+
                                     from-date (fn [{:keys [date]}]
                                                 (<= (-> ^Date from-date .toInstant .getEpochSecond)
                                                     (-> ^Date date .toInstant .getEpochSecond)))
+
                                     to-date (fn [{:keys [date]}]
                                               (<= (-> ^Date date .toInstant .getEpochSecond)
                                                   (-> ^Date to-date .toInstant .getEpochSecond)))
+
                                     minimum-free-seats (fn [{:keys [number-of-seats]}]
                                                          (<= minimum-free-seats
                                                              number-of-seats)))
