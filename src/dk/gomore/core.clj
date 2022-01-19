@@ -17,7 +17,7 @@
 
 (def integer-string? (partial re-matches integer-regex))
 
-(def city-regex #"[A-Za-z ]+")
+(def city-regex #"[A-Za-z]+")
 
 (def city-string? (partial re-matches city-regex))
 
@@ -47,31 +47,26 @@
                "S [from-city [to-city]] [from-date [to-date]] [minimum-free-seats]"]]
     (println msg)))
 
-(defn parse-create-args [args]
-  (let [{:keys [date number-of-seats] :as create-args} (s/conform ::create-args args)]
-    (when (= :clojure.spec.alpha/invalid create-args)
-      (throw (ex-info (str "Invalid arguments to create command: " args)
-                      {:reason (s/explain-str ::create-args args)})))
-    (cond-> create-args
-      date (update :date inst/read-instant-date)
-      number-of-seats (update :number-of-seats #(Integer/parseInt %)))))
+(defn parse-args [args spec]
+  (let [conformed-args (s/conform spec args)]
+    (when (= :clojure.spec.alpha/invalid conformed-args)
+      (throw (ex-info (str "Invalid arguments for command: " args)
+                      {:reason (s/explain-str spec args)})))
+    conformed-args))
 
-(defn parse-return-args [args]
-  (let [return-args (s/conform ::return-args args)]
-    (when (= :clojure.spec.alpha/invalid return-args)
-      (throw (ex-info (str "Invalid arguments to return command: " args)
-                      {:reason (s/explain-str ::return-args args)})))
-    (update return-args :date inst/read-instant-date)))
+(defn normalize-create-args [{:keys [date number-of-seats] :as create-args}]
+  (cond-> create-args
+    date (update :date inst/read-instant-date)
+    number-of-seats (update :number-of-seats #(Integer/parseInt %))))
 
-(defn parse-search-args [args]
-  (let [{:keys [from-date to-date minimum-free-seats] :as search-args} (s/conform ::search-args args)]
-    (when (= :clojure.spec.alpha/invalid search-args)
-      (throw (ex-info (str "Invalid arguments to search command: " args)
-                      {:reason (s/explain-str ::search-args args)})))
-    (cond-> search-args
-      from-date (update :from-date inst/read-instant-date)
-      to-date (update :to-date inst/read-instant-date)
-      minimum-free-seats (update :minimum-free-seats #(Integer/parseInt %)))))
+(defn normalize-return-args [return-args]
+  (update return-args :date inst/read-instant-date))
+
+(defn normalize-search-args [{:keys [from-date to-date minimum-free-seats] :as search-args}]
+  (cond-> search-args
+    from-date (update :from-date inst/read-instant-date)
+    to-date (update :to-date inst/read-instant-date)
+    minimum-free-seats (update :minimum-free-seats #(Integer/parseInt %))))
 
 (defn print-matched-rides! [rides]
   (println "==>")
@@ -83,23 +78,22 @@
 
 (defn prompt! []
   (try
-    (loop [rides []
-           last-ride nil]
+    (loop [rides [] last-ride nil]
       (print "> ")
       (.flush *out*)
       (let [[command & args] (str/split (read-line) #" ")]
         (case command
-          "C" (let [created-ride (parse-create-args args)]
+          "C" (let [created-ride (normalize-create-args (parse-args args ::create-args))]
                 (recur (conj rides created-ride) created-ride))
-          "R" (let [{:keys [from-city to-city number-of-seats]} last-ride
-                    {:keys [date]} (parse-return-args args)
+          "R" (let [{:keys [date]} (normalize-return-args (parse-args args ::return-args))
+                    {:keys [from-city to-city number-of-seats]} last-ride
                     return-ride {:number-of-seats number-of-seats
                                  :date            date
                                  :to-city         from-city
                                  :from-city       to-city}]
                 (recur (conj rides return-ride) return-ride))
           "S" (let [{:keys [from-city to-city from-date to-date minimum-free-seats]}
-                    (parse-search-args args)
+                    (normalize-search-args (parse-args args ::search-args))
 
                     tf
                     (cond->> identity
